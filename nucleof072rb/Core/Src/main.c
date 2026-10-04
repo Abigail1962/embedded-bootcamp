@@ -19,6 +19,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -34,6 +36,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -87,8 +90,15 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_SPI1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 3000U);
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -98,7 +108,33 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	  uint8_t tx_buffer[3] = {0x01, 0x80, 0x00};
+	  uint8_t rx_buffer[3] = {0};
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+	  HAL_StatusTypeDef spi_status =
+	      HAL_SPI_TransmitReceive(
+	          &hspi1, tx_buffer, rx_buffer, 3, 100);
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+	  if (spi_status == HAL_OK)
+	   {
+
+	     uint16_t adc_raw =
+	         (uint16_t)(((rx_buffer[1] & 0x03U) << 8)
+	                    | rx_buffer[2]);
+
+
+	     uint32_t pwm_value =
+	         3000U + ((uint32_t)adc_raw * 3000U) / 1023U;
+
+	     __HAL_TIM_SET_COMPARE(
+	         &htim1, TIM_CHANNEL_1, pwm_value);
+	   }
+
+
+	   HAL_Delay(10);
+	 }
+
+
   /* USER CODE END 3 */
 }
 
